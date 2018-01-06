@@ -106,7 +106,7 @@ describe Clearance::Session do
 
         session.sign_in user
 
-        expect(cookies(session).each.size).to eq 0
+        expect(cookies(session).instance_variable_get("@cookies").size).to eq 0
         expect(session.current_user).to be_nil
       end
 
@@ -293,7 +293,7 @@ describe Clearance::Session do
     session = Clearance::Session.new(env_without_remember_token)
     session.sign_in(user)
     session.sign_out
-    expect(cookies(session).each.size).to be 0
+    expect(cookies(session).instance_variable_get("@cookies").size).to be 0
   end
 
   it 'signs out a user' do
