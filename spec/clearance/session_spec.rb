@@ -35,8 +35,9 @@ describe Clearance::Session do
       Clearance.configuration.cookie_name = "custom_cookie_name"
 
       session.sign_in user
+      session.add_cookie_to_headers(headers)
 
-      expect(cookies(session)["custom_cookie_name"]).to be_present
+      expect(headers["Set-Cookie"]).to match(/custom_cookie_name=.+;/)
     end
   end
 
@@ -106,7 +107,7 @@ describe Clearance::Session do
 
         session.sign_in user
 
-        expect(cookies(session).instance_variable_get("@cookies").size).to eq 0
+        expect(session.instance_variable_get("@cookies")).to be_nil
         expect(session.current_user).to be_nil
       end
 
@@ -151,8 +152,9 @@ describe Clearance::Session do
     end
 
     it 'sets a httponly cookie' do
-      expect(cookies(session)["remember_token"]).to be_present
-      expect(cookie_option_hash(session)["remember_token"][:httponly]).to be true
+      session.add_cookie_to_headers(headers)
+
+      expect(headers['Set-Cookie']).to match(/remember_token=.+; HttpOnly/)
     end
   end
 
@@ -162,7 +164,9 @@ describe Clearance::Session do
     end
 
     it 'sets a standard cookie' do
-      expect(cookie_option_hash(session)["remember_token"][:httponly]).to be false
+      session.add_cookie_to_headers(headers)
+
+      expect(headers['Set-Cookie']).not_to match(/remember_token=.+; HttpOnly/)
     end
   end
 
@@ -173,8 +177,12 @@ describe Clearance::Session do
         headers = {}
         session = Clearance::Session.new(env_without_remember_token)
         session.sign_in user
+        session.add_cookie_to_headers headers
 
-        expect(cookie_option_hash(session)["remember_token"][:expires]).to eq 1.year.from_now
+        expect(headers).to set_cookie(
+          'remember_token',
+          user.remember_token, 1.year.from_now
+        )
       end
     end
 
@@ -183,8 +191,9 @@ describe Clearance::Session do
         expiration = -> { Time.now }
         with_custom_expiration expiration do
           session = Clearance::Session.new(env_without_remember_token)
-          allow(session).to receive(:warn)
           session.sign_in user
+          allow(session).to receive(:warn)
+          session.add_cookie_to_headers headers
 
           expect(session).to have_received(:warn).once
         end
@@ -198,8 +207,12 @@ describe Clearance::Session do
           session = Clearance::Session.new(env_without_remember_token)
           session.sign_in user
           allow(session).to receive(:warn)
+          session.add_cookie_to_headers headers
 
-          expect(cookie_option_hash(session)["remember_token"][:expires]).to eq expires_at.call
+          expect(headers).to set_cookie(
+            'remember_token',
+            user.remember_token, expires_at.call
+          )
         end
       end
     end
@@ -216,8 +229,14 @@ describe Clearance::Session do
           environment = env_with_cookies(remember_me: 'true')
           session = Clearance::Session.new(environment)
           session.sign_in user
+          session.add_cookie_to_headers headers
 
-          expect(cookie_option_hash(session)["remember_token"][:expires]).to eq remembered_expires
+          expect(headers).to set_cookie(
+            'remember_token',
+            user.remember_token,
+            remembered_expires
+          )
+
         end
       end
     end
@@ -230,7 +249,9 @@ describe Clearance::Session do
       end
 
       it 'sets a standard cookie' do
-        expect(cookie_option_hash(session)["remember_token"][:secure]).to be false
+        session.add_cookie_to_headers(headers)
+
+        expect(headers['Set-Cookie']).not_to match(/remember_token=.+; secure/)
       end
     end
 
@@ -241,7 +262,9 @@ describe Clearance::Session do
       end
 
       it 'sets a secure cookie' do
-        expect(cookie_option_hash(session)["remember_token"][:secure]).to be true
+        session.add_cookie_to_headers(headers)
+
+        expect(headers['Set-Cookie']).to match(/remember_token=.+; secure/)
       end
     end
   end
@@ -254,7 +277,9 @@ describe Clearance::Session do
       end
 
       it 'sets a standard cookie' do
-        expect(cookie_option_hash(session)["remember_token"][:domain]).to eq ".example.com"
+        session.add_cookie_to_headers(headers)
+
+        expect(headers['Set-Cookie']).to match(/domain=\.example\.com; path/)
       end
     end
 
@@ -262,7 +287,9 @@ describe Clearance::Session do
       before { session.sign_in(user) }
 
       it 'sets a standard cookie' do
-        expect(cookie_option_hash(session)["remember_token"][:domain]).to be nil
+        session.add_cookie_to_headers(headers)
+
+        expect(headers['Set-Cookie']).not_to match(/domain=.+; path/)
       end
     end
   end
@@ -272,7 +299,9 @@ describe Clearance::Session do
       before { session.sign_in(user) }
 
       it 'sets a standard cookie' do
-        expect(cookie_option_hash(session)["remember_token"][:path]).to eq "/"
+        session.add_cookie_to_headers(headers)
+
+        expect(headers['Set-Cookie']).to_not match(/domain=.+; path/)
       end
     end
 
@@ -283,7 +312,9 @@ describe Clearance::Session do
       end
 
       it 'sets a standard cookie' do
-        expect(cookie_option_hash(session)["remember_token"][:path]).to eq "/user"
+        session.add_cookie_to_headers(headers)
+
+        expect(headers['Set-Cookie']).to match(/path=\/user; expires/)
       end
     end
   end
@@ -291,9 +322,8 @@ describe Clearance::Session do
   it 'does not set a remember token when signed out' do
     headers = {}
     session = Clearance::Session.new(env_without_remember_token)
-    session.sign_in(user)
-    session.sign_out
-    expect(cookies(session).instance_variable_get("@cookies").size).to be 0
+    session.add_cookie_to_headers headers
+    expect(headers["Set-Cookie"]).to be nil
   end
 
   it 'signs out a user' do
@@ -335,13 +365,5 @@ describe Clearance::Session do
   def with_custom_expiration(custom_duration)
     Clearance.configuration.cookie_expiration = custom_duration
     yield
-  end
-
-  def cookies(sess)
-    sess.send(:cookies)
-  end
-
-  def cookie_option_hash(sess)
-    cookies(sess).instance_variable_get("@set_cookies")
   end
 end

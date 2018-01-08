@@ -13,7 +13,7 @@ describe "cookie options" do
         user = create(:user, password: "password")
 
         post session_path, session: { email: user.email, password: "password" }
-        @remember_token_cookies = headers["Set-Cookie"].split("\n").select{|v| v =~ /^remember_token/}
+        @remember_token_cookies = headers["Set-Cookie"].split("\n").select { |v| v =~ /^remember_token/ }
       end
 
       it "should have one remember_token cookie" do
@@ -34,7 +34,7 @@ describe "cookie options" do
         user = create(:user, password: "password")
 
         post session_path, session: { email: user.email, password: "password" }
-        @remember_token_cookies = headers["Set-Cookie"].split("\n").select{|v| v =~ /^remember_token/}
+        @remember_token_cookies = headers["Set-Cookie"].split("\n").select { |v| v =~ /^remember_token/ }
       end
 
       it "should have one remember_token cookie" do

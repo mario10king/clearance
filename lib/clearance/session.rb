@@ -11,6 +11,19 @@ module Clearance
       @cookies = nil
     end
 
+    # Called by {RackSession} to add the Clearance session cookie to a response.
+    #
+    # @return [void]
+    def add_cookie_to_headers(headers)
+      if current_user && current_user.remember_token
+        Rack::Utils.set_cookie_header!(
+          headers,
+          remember_token_cookie,
+          cookie_options.merge(value: current_user.remember_token)
+        )
+      end
+    end
+
     # The current user represented by this session.
     #
     # @return [User, nil]
@@ -40,11 +53,7 @@ module Clearance
       @current_user = user
       status = run_sign_in_stack
 
-      if status.success?
-        if user && user.remember_token
-          cookies[remember_token_cookie] = cookie_options.merge(value: user.remember_token)
-        end
-      else
+      if !status.success?
         @current_user = nil
       end
 
