@@ -12,16 +12,19 @@ describe "cookie options" do
         get sign_in_path
         user = create(:user, password: "password")
 
-        post session_path, session: { email: user.email, password: "password" }
-        @remember_token_cookies = headers["Set-Cookie"].split("\n").select { |v| v =~ /^remember_token/ }
+        post session_path, params: {
+          session: { email: user.email, password: "password" },
+        }
+        @remember_token_cookies = remember_token_cookies
       end
 
       it "should have one remember_token cookie" do
-        expect(@remember_token_cookies.length).to eq(1), "expected one 'remember_token' cookie:\n#{@remember_token_cookies}"
+        expect(@remember_token_cookies.length).to eq(1),
+          "expected one 'remember_token' cookie:\n#{@remember_token_cookies}"
       end
 
       it "should not have the httponly flag set" do
-        expect(@remember_token_cookies.last).to_not match(/httponly/i)
+        expect(@remember_token_cookies["remember_token"]).to_not be_http_only
       end
     end
   end
@@ -33,16 +36,19 @@ describe "cookie options" do
         get sign_in_path
         user = create(:user, password: "password")
 
-        post session_path, session: { email: user.email, password: "password" }
-        @remember_token_cookies = headers["Set-Cookie"].split("\n").select { |v| v =~ /^remember_token/ }
+        post session_path, params: {
+          session: { email: user.email, password: "password" },
+        }
+        @remember_token_cookies = remember_token_cookies
       end
 
       it "should have one remember_token cookie" do
-        expect(@remember_token_cookies.length).to eq(1), "expected one 'remember_token' cookie:\n#{@remember_token_cookies}"
+        expect(@remember_token_cookies.length).to eq(1),
+          "expected one 'remember_token' cookie:\n#{@remember_token_cookies}"
       end
 
       it "should have the httponly flag set" do
-        expect(@remember_token_cookies.last).to match(/httponly/i)
+        expect(@remember_token_cookies["remember_token"]).to be_http_only
       end
     end
   end

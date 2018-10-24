@@ -15,11 +15,13 @@ module Clearance
     #
     # @return [void]
     def add_cookie_to_headers(headers)
-      if current_user && current_user.remember_token
+      if signed_in_with_remember_token?
         Rack::Utils.set_cookie_header!(
           headers,
           remember_token_cookie,
-          cookie_options.merge(value: current_user.remember_token)
+          cookie_options.merge(
+            value: current_user.remember_token,
+          )
         )
       end
     end
@@ -53,7 +55,11 @@ module Clearance
       @current_user = user
       status = run_sign_in_stack
 
-      if !status.success?
+      if status.success?
+        # Sign in succeeded, and when {RackSession} is run and calls
+        # {#add_cookie_to_headers} it will set the cookie with the
+        # remember_token for the current_user
+      else
         @current_user = nil
       end
 
@@ -118,6 +124,11 @@ module Clearance
     end
 
     # @api private
+    def signed_in_with_remember_token?
+      current_user && current_user.remember_token
+    end
+
+    # @api private
     def remember_token_cookie
       Clearance.configuration.cookie_name.freeze
     end
@@ -150,18 +161,13 @@ module Clearance
 
     # @api private
     def cookie_options
-      value = {
+      {
+        domain: Clearance.configuration.cookie_domain,
         expires: remember_token_expires,
         httponly: Clearance.configuration.httponly,
         path: Clearance.configuration.cookie_path,
         secure: Clearance.configuration.secure_cookie,
       }
-
-      if Clearance.configuration.cookie_domain.present?
-        value[:domain] = Clearance.configuration.cookie_domain
-      end
-
-      value
     end
   end
 end

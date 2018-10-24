@@ -6,13 +6,18 @@ describe "token expiration" do
       get sign_in_path
       user = create(:user, password: "password")
 
-      post session_path, session: { email: user.email, password: "password" }
-      @remember_token_cookies = headers["Set-Cookie"].split("\n").select { |v| v =~ /^remember_token/ }
+      post session_path, params: {
+        session: { email: user.email, password: "password" },
+      }
+      @remember_token_cookies = remember_token_cookies
     end
 
     it "should have a remember_token cookie with an expiration of <>" do
-      cookie_hash = cookie_to_hash(@remember_token_cookies.last)
-      expect(cookie_hash["expires"]).to be_between(1.years.from_now - 1.second, 1.years.from_now)
+      expires = @remember_token_cookies["remember_token"].expires
+      expect(expires).to be_between(
+        1.years.from_now - 1.second,
+        1.years.from_now,
+      )
     end
   end
 
@@ -21,31 +26,24 @@ describe "token expiration" do
       get sign_in_path
       user = create(:user, password: "password")
 
-      post session_path, session: { email: user.email, password: "password" }
-      @first_remember_token_cookies = headers["Set-Cookie"].split("\n").select { |v| v =~ /^remember_token/ }
+      post session_path, params: {
+        session: { email: user.email, password: "password" },
+      }
+      @initial_cookies = remember_token_cookies
 
-      sleep 2
-      get root_path
-      @second_remember_token_cookies = headers["Set-Cookie"].split("\n").select { |v| v =~ /^remember_token/ }
+      Timecop.travel(30.seconds.from_now) do
+        get root_path
+        @followup_cookies = remember_token_cookies
+      end
     end
 
     it "should set a new remember_token on every request with an updated expiration" do
-      expect(@second_remember_token_cookies.last).to be, "remember token wasn't set on second request"
+      expect(@followup_cookies["remember_token"]).to be,
+        "remember token wasn't set on second request"
 
-      first_expiration = cookie_to_hash(@first_remember_token_cookies.last)["expires"]
-      second_expiration = cookie_to_hash(@second_remember_token_cookies.last)["expires"]
+      first_expiration = @initial_cookies["remember_token"].expires
+      second_expiration = @followup_cookies["remember_token"].expires
       expect(second_expiration).to be > first_expiration
     end
-  end
-
-  def cookie_to_hash(cookie_string)
-    elements = cookie_string.split(/;\s+/)
-    pairs = elements.map { |ele| ele.split("=") }
-
-    name = pairs[0][0]
-    value = pairs[0][1]
-    h = Hash[pairs].merge("name" => name, "value" => value)
-    h["expires"] = DateTime.parse(h["expires"])
-    h
   end
 end
